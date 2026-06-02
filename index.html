@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vibe·bench — blind model arena</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: #0a0a0f; color: #e7e7ea;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+      a { color: #8ab4ff; }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 22px 20px 60px; }
+      .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+      .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+      .brand .dot { color: #a78bfa; }
+      .sub { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+      .tabs { display: flex; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px; padding: 4px; }
+      .tab { padding: 6px 14px; border-radius: 7px; font-size: 13px; cursor: pointer; color: rgba(255,255,255,0.6);
+        border: 0; background: transparent; }
+      .tab.active { background: rgba(139,92,246,0.25); color: #ddd6fe; }
+      .muted { color: rgba(255,255,255,0.4); }
+      .card { border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); border-radius: 16px; }
+      .btn { border: 0; border-radius: 12px; padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer; }
+      .btn-primary { background: #8b5cf6; color: white; }
+      .btn-primary:hover { background: #a78bfa; }
+      .btn-ghost { background: rgba(255,255,255,0.05); color: #e7e7ea; border: 1px solid rgba(255,255,255,0.1); }
+      .btn-ghost:hover { background: rgba(255,255,255,0.1); }
+
+      /* evaluate */
+      .evalhead { margin: 18px 0 8px; }
+      .kicker { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); }
+      .ptitle { font-size: 18px; font-weight: 600; margin: 4px 0 0; }
+      .pbody { font-size: 14px; color: rgba(255,255,255,0.55); margin: 2px 0 0; white-space: pre-wrap; }
+      .pbody.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .pbody.open { max-height: 220px; overflow: auto; padding-right: 8px; }
+      .morebtn { font-size: 11px; color: rgba(167,139,250,0.85); background: none; border: 0; cursor: pointer; padding: 2px 0; }
+      .cards { display: flex; gap: 16px; margin-top: 10px; }
+      .col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+      .colhead { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); border-radius: 16px 16px 0 0; }
+      .colhead .lab { font-weight: 700; color: rgba(255,255,255,0.75); }
+      .out { padding: 16px; overflow: auto; height: 54vh; }
+      .actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+      .hint { text-align: center; font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 12px; }
+      .viewtoggle { display: flex; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; font-size: 12px; }
+      .viewtoggle button { background: transparent; border: 0; color: rgba(255,255,255,0.5); padding: 5px 12px; cursor: pointer; }
+      .viewtoggle button.on { background: rgba(139,92,246,0.3); color: #ddd6fe; }
+
+      /* leaderboard */
+      .row { display: flex; align-items: center; gap: 16px; padding: 14px 16px; }
+      .rank { width: 26px; text-align: center; font-weight: 800; color: rgba(255,255,255,0.3); font-size: 18px; }
+      .who { width: 210px; flex-shrink: 0; }
+      .who .m { font-weight: 600; }
+      .who .lv { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); }
+      .bar { flex: 1; height: 10px; border-radius: 99px; background: rgba(255,255,255,0.06); overflow: hidden; }
+      .bar > div { height: 100%; }
+      .wl { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 5px; }
+      .elo { width: 64px; text-align: right; }
+      .elo .n { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+      .elo .u { font-size: 10px; text-transform: uppercase; color: rgba(255,255,255,0.4); }
+      .accent-violet { color: #c4b5fd; } .bg-violet { background: #8b5cf6; }
+      .accent-emerald { color: #6ee7b7; } .bg-emerald { background: #10b981; }
+      .accent-slate { color: #cbd5e1; } .bg-slate { background: #64748b; }
+
+      /* markdown */
+      .md { font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.6; }
+      .md h1, .md h2, .md h3 { font-weight: 600; margin: 0.8em 0 0.4em; line-height: 1.25; }
+      .md h1 { font-size: 1.35rem; } .md h2 { font-size: 1.15rem; } .md h3 { font-size: 1.03rem; }
+      .md p { margin: 0.5em 0; } .md ul, .md ol { margin: 0.5em 0; padding-left: 1.4em; }
+      .md ul { list-style: disc; } .md ol { list-style: decimal; } .md li { margin: 0.2em 0; }
+      .md code { background: #1a1a24; padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.85em;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .md pre { background: #11111a; border: 1px solid #22222e; border-radius: 8px; padding: 0.8em; overflow-x: auto; }
+      .md pre code { background: transparent; padding: 0; }
+      .md blockquote { border-left: 3px solid #33333f; padding-left: 0.8em; color: #b8b8c4; }
+      .md table { border-collapse: collapse; } .md th, .md td { border: 1px solid #2a2a35; padding: 0.3em 0.6em; }
+
+      /* diff */
+      .diff { background: #0d0d14; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 6px 0; }
+      .dl { display: block; white-space: pre; padding: 0 12px; font-size: 12px; line-height: 1.5;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .dl.add { background: rgba(34,197,94,0.14); color: #b9f6ca; }
+      .dl.del { background: rgba(239,68,68,0.14); color: #ffcdd2; }
+      .dl.hunk { color: #7dd3fc; background: rgba(56,189,248,0.08); }
+      .dl.meta { color: #8a8a99; }
+      .center { text-align: center; padding: 70px 0; }
+      .big { font-size: 44px; }
+      ::-webkit-scrollbar { width: 9px; height: 9px; }
+      ::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="top">
+        <div>
+          <div class="brand">vibe<span class="dot">·</span>bench</div>
+          <div class="sub" id="sub"></div>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-tab="evaluate" id="tab-evaluate">⚖ Evaluate</button>
+          <button class="tab" data-tab="leaderboard" id="tab-leaderboard">🏆 Leaderboard</button>
+        </div>
+      </div>
+      <div id="view"></div>
+    </div>
+
+    <script id="bench-data" type="application/json">{"benchId":"wtkbiq","models":[{"id":"opus-4-8","label":"Opus 4.8","accent":"violet"},{"id":"gpt-5-5","label":"GPT-5.5","accent":"emerald"}],"prompts":[{"id":6,"title":"My Crunchyroll sub seems to linked to my Apple account, is t","body":"My Crunchyroll sub seems to linked to my Apple account, is there any way to disconnect that?","repo_path":null,"output_type":"auto"},{"id":7,"title":"I signed up for a Verizon plan that gives me credit for the ","body":"I signed up for a Verizon plan that gives me credit for the new iPhone pro max 17 I bought for work. There’s 30 payments remaining, around 900$ (but it’s credited). My Verizon bill is 90￼ to pay off the remaining phone payments. Am I able to do this? Does Verizon lock me in for 3 years?","repo_path":null,"output_type":"auto"},{"id":8,"title":"245mm Korean size to European female size shoe","body":"245mm Korean size to European female size shoe","repo_path":null,"output_type":"auto"},{"id":9,"title":"Explain speculative decoding to me simply, I am new to ML in","body":"Explain speculative decoding to me simply, I am new to ML inference but I understand general software engineering","repo_path":null,"output_type":"auto"},{"id":10,"title":"How long should I bake my steak after dry brining?","body":"How long should I bake my steak after dry brining?","repo_path":null,"output_type":"auto"}],"runs":[{"id":21,"prompt_id":6,"model_id":"opus-4-8","level":"max","output_text":"This is a billing question rather than something in your codebase, but I can explain how it works.\n\nWhen your Crunchyroll subscription shows up under your Apple account, it means you originally subscribed **through the iOS app**, so Apple handles the billing as an In-App Purchase. Crunchyroll can't manage or cancel that on their end — only Apple can. To \"disconnect\" it you cancel the Apple-billed subscription, then (if you still want Crunchyroll) re-subscribe directly through their website so billing goes through them instead.\n\n## Cancel the Apple-billed subscription\n\n**On your iPhone/iPad:**\n1. Open **Settings** → tap your name at the top\n2. Tap **Subscriptions**\n3. Find **Crunchyroll** in the list\n4. Tap it → **Cancel Subscription**\n\n**On a Mac:** App Store → click your name (bottom-left) → **Account Settings** → scroll to **Subscriptions** → **Manage**.\n\nYou'll keep access until the end of the current billing period.\n\n## Re-subscribe directly (optional)\n\nIf you want to keep watching without the Apple link, **wait until the current period expires**, then go to **crunchyroll.com** in a web browser (not the app), log into the same account, and subscribe there with a card/PayPal. Going through the website avoids Apple's billing entirely — and it's often a bit cheaper, since Apple adds a markup.\n\nA couple of things worth knowing:\n- Your **account and watch history stay intact** — you're only changing *how it's paid for*, not the account itself.\n- Don't subscribe on the web *before* the Apple one lapses, or you may end up double-billed for a stretch.\n\nIf \"linked to Apple\" instead means you **sign in to Crunchyroll using Apple** (Sign in with Apple), that's a separate thing — let me know and I'll walk you through changing the login method instead.","diff":""},{"id":22,"prompt_id":6,"model_id":"gpt-5-5","level":"xhigh","output_text":"Yes, but it’s basically a **cancel-and-resubscribe** flow, not a simple “unlink” button.\n\nIf your Crunchyroll Premium was started through the iOS app, Crunchyroll says it’s managed through Apple, so you won’t cancel/manage it from Crunchyroll’s website. Cancel it through Apple first: **iPhone Settings → your name → Subscriptions → Crunchyroll → Cancel Subscription**. Apple notes that if there’s no cancel button or you see an expiration message, it’s already canceled. Sources: [Crunchyroll](https://help.crunchyroll.com/hc/en-us/articles/17931128982164-How-do-I-cancel-my-membership), [Apple](https://support.apple.com/en-us/118428).\n\nAfter canceling, you keep Premium until the current paid period ends. Once Crunchyroll shows your account as **Free**, resubscribe at `crunchyroll.com/premium` and billing will be directly through Crunchyroll instead of Apple. Crunchyroll recommends waiting for the paid period to end to avoid double charges: [Crunchyroll transfer article](https://help.crunchyroll.com/hc/en-us/articles/43729295188116-How-do-I-move-my-Crunchyroll-subscription-from-another-service).\n\nIf you meant **Sign in with Apple** rather than billing, that’s separate: Apple lets you stop using Sign in with Apple for an app, but set up/confirm a Crunchyroll login first so you don’t lock yourself out. That does **not** cancel Apple billing.","diff":""},{"id":23,"prompt_id":6,"model_id":"opus-4-8","level":"high","output_text":"When a Crunchyroll subscription shows up as linked to your Apple account, it means you originally subscribed through Apple's In-App Purchase (via the iOS app), so Apple is billing you, not Crunchyroll directly. You can't just \"unlink\" it — you have to cancel the Apple subscription and (if you want to keep Crunchyroll) re-subscribe directly through Crunchyroll's website.\n\n**1. Confirm it's an Apple-billed subscription**\n- On your iPhone/iPad: **Settings → [your name] → Subscriptions**, and look for Crunchyroll in the list. If it's there, Apple handles the billing.\n\n**2. Cancel the Apple subscription**\n- In that same **Subscriptions** screen, tap **Crunchyroll → Cancel Subscription**.\n- You'll keep access until the end of the current billing period.\n\n**3. Re-subscribe directly through Crunchyroll (optional)**\n- Go to **crunchyroll.com** in a web browser (not the app) and subscribe there with a card/PayPal. Billing through the website is usually cheaper, since it avoids Apple's surcharge.\n- Use the **same Crunchyroll login** so your account/watch history carries over — only the *payment method* changes.\n\nA few notes:\n- Cancelling through Apple does **not** delete your Crunchyroll account, just the Apple-managed payment.\n- To avoid a gap, you can re-subscribe on the website before the Apple period ends (you generally won't be double-charged since the Apple one is already cancelled).\n- If you don't see Crunchyroll under Apple Subscriptions, then it's billed elsewhere (directly by Crunchyroll, Google Play, etc.), and you'd manage it from there instead.\n\nWant me to walk through any of these steps in more detail?","diff":""},{"id":24,"prompt_id":6,"model_id":"gpt-5-5","level":"medium","output_text":"Yes, but usually not as a direct “disconnect” button.\n\nIf your Crunchyroll Premium is billed through Apple, Apple controls the subscription. Crunchyroll generally can’t move that active subscription to direct billing. The normal path is:\n\n1. Cancel it through Apple:\n   - iPhone/iPad: `Settings` → your name → `Subscriptions` → `Crunchyroll` → `Cancel Subscription`\n   - Or use Apple’s cancellation guide: https://support.apple.com/en-us/118428\n\n2. Keep using Crunchyroll until the paid period ends.\n\n3. After it expires, log into Crunchyroll on the website and subscribe again directly with your preferred payment method.\n\nIf you mean your login is tied to “Sign in with Apple,” that is separate from billing. You may be able to add/change your email/password in Crunchyroll account settings, but if Premium billing is Apple-managed, canceling in Apple subscriptions is still the key step.\n\nIf you don’t see Crunchyroll under Apple subscriptions, check whether it was bought as an Apple TV Channel or through another storefront, then contact Apple Support or Crunchyroll support with the Apple receipt/order ID.","diff":""},{"id":25,"prompt_id":7,"model_id":"opus-4-8","level":"max","output_text":"Short version: Yes, you *can* pay off the remaining balance — but with a promotional \"credited\" phone you almost certainly **shouldn't**, and Verizon doesn't lock you into a true contract, though the whole deal is built around you staying ~3 years.\n\n**How these deals actually work**\n- The phone is financed over **36 months at 0% interest** (that's where \"3 years\" comes from). The full retail price is split into 36 installments.\n- The \"credit\" is a **monthly bill credit** spread across those same 36 months. Each month you're charged the device installment *and* given an offsetting credit, so the phone nets out to roughly $0 over time.\n- Your ~$90 bill = plan charges + device installment − promo credit.\n\n**Paying it off early**\n- You can pay the ~$900 balance anytime. **But the promotional credits stop once the device payment agreement ends.** So if you pay $900 today, you forfeit the ~$900 in credits you'd have collected over the remaining 30 months — i.e., you'd end up paying full price for a phone that was otherwise free.\n- Net effect: paying off early usually *costs* you money. Letting it run its course costs you ~$0.\n\n**The \"3-year lock-in\"**\n- It's **not a traditional contract** with an early termination fee — you can leave Verizon whenever you want.\n- *But* to capture the full free-phone value you need to (a) keep the line active, (b) stay on a qualifying plan — downgrading can kill the credits, and (c) keep making the device payments for the full 36 months.\n- Leave early and you owe the remaining device balance *and* lose the remaining credits. That's the real \"lock-in\" — economic, not contractual.\n\n**Since it's for work**\n- If your employer reimburses the device cost, weigh that against losing the credits — paying off to get reimbursed could still leave you behind. Many companies would rather reimburse the monthly cost instead.\n- Confirm the exact terms in the Verizon app under your device payment agreement, and ideally get the \"what happens to my credits if I pay off early?\" answer from Verizon **in writing** — reps are notorious for giving inconsistent answers on this.\n\n**Bottom line:** leave it on the monthly plan and let the credits run the full 36 months — the phone stays effectively free. Only pay it off early if you're actually leaving Verizon and just want it closed out.","diff":""},{"id":26,"prompt_id":7,"model_id":"gpt-5-5","level":"xhigh","output_text":"Yes, you can pay off the remaining Verizon device payment balance early. Verizon says you can pay the full device payment agreement balance at any time, with no prepayment penalty.\n\nBut the key catch is the credit: if the phone promo credit is being applied monthly over 36 months, paying off the device early makes the remaining monthly promotional credits stop. Verizon’s own promo FAQ says credits stop if you pay off the device payment agreement early, cancel the line, do an early upgrade, or stop meeting the promo/plan requirements.\n\nSo with your example:\n\n- 30 payments left\n- about `$900` remaining\n- payments are currently offset by bill credits\n\nIf you pay it off now, you likely pay that ~$900 yourself and give up the remaining credits. You generally are not “locked in” by a traditional 3-year service contract, but the promo effectively locks you in financially for the 36-month credit period if you want the full discount.\n\nIf you cancel or port out, Verizon will usually bill the remaining phone balance, and the future credits stop. If you stay with Verizon on the qualifying plan for the full promo term, the credits keep offsetting the phone payments.\n\nSources: Verizon device payment FAQ and promo FAQ:  \nhttps://www.verizon.com/support/device-payment-faqs/  \nhttps://www.verizon.com/support/device-deals-faqs/","diff":""},{"id":27,"prompt_id":7,"model_id":"opus-4-8","level":"high","output_text":"Short version: yes you *can* pay it off, but with a credited (promo) phone you usually **don't want to**, and the \"lock-in\" isn't a contract in the traditional sense — it's the credit structure.\n\nHere's how Verizon's device deals actually work:\n\n**The credit is monthly, not upfront.** When Verizon \"credits\" a phone, they're not knocking the price off the total. They're applying a **bill credit each month** (e.g. ~$25–$30/mo) that cancels out that month's device installment. The credits are spread across the *entire* term — typically **36 months (3 years)** on current promos.\n\n**That's the catch with paying it off early.** If you pay off the remaining ~$900 device balance in a lump sum:\n- The remaining monthly **promotional credits stop**.\n- So you'd be paying the device cost out of pocket that you would have otherwise gotten for free over time.\n- Net effect: you lose the deal. The \"free phone\" only stays free if you let the installments + credits run their full course.\n\n**Is it a 3-year \"lock\"?** Not a contract with an early-termination fee. Verizon dropped traditional contracts years ago. But the promo requires you to:\n- Keep the device payment agreement active, and\n- Stay on a qualifying plan/line for the full term.\n\nIf you cancel the line, switch to a non-qualifying plan, or pay off early, the credits stop and you're on the hook for whatever device balance is left. So functionally you're \"committed\" for 36 months to capture the full value — but you can leave anytime by simply paying the remaining device balance (you just forfeit future credits).\n\n**Bottom line for you:** Since the phone is being credited, the cheapest path is to **leave it alone and pay the monthly bill**. Paying off the $900 early would cost you money, not save it.\n\nOne caveat: exact terms (24 vs 36 months, credit amount, plan requirement) vary by promo. Check your **device payment agreement** in the My Verizon app — it spells out the term length, monthly credit amount, and the plan you must keep. That document is the source of truth for your specific deal.","diff":""},{"id":28,"prompt_id":7,"model_id":"gpt-5-5","level":"medium","output_text":"Yes, you can pay off the remaining Verizon device payments early. Verizon says there is no prepayment penalty.\n\nBut if your iPhone 17 Pro Max promo is being paid as monthly bill credits, paying off the phone early will normally stop the remaining credits. So if there are about 30 credits left worth about `$900`, paying the phone off now likely means you’d pay the `$900` yourself and lose the future `$900` Verizon was going to credit. Verizon’s promo FAQ specifically says credits stop if you pay off the device early or change to a non-qualifying plan.\n\nSo Verizon does not “lock you in” with a 3-year service contract in the old early-termination-fee sense. It is more of a 36-month financial incentive: stay on the eligible plan and keep the device payment agreement active to receive all credits. If you cancel service, change to an ineligible plan, upgrade early, or pay off early, the remaining device balance/credits can become your responsibility.\n\nOne extra wrinkle: for devices bought after January 27, 2026, Verizon’s current unlock policy says standard monthly-plan devices unlock after the device is paid off, subject to secure-payment/fraud rules.\n\nSources: Verizon device payment FAQ, promo-credit FAQ, and device unlocking FAQ.  \nhttps://www.verizon.com/support/device-payment-faqs/  \nhttps://www.verizon.com/support/device-deals-faqs/  \nhttps://www.verizon.com/support/device-locking-faqs/","diff":""},{"id":29,"prompt_id":8,"model_id":"opus-4-8","level":"max","output_text":"**245mm Korean = EU 38.5** (roughly EU 38–39) for women's shoes.\n\nKorean sizing is just the foot length in millimeters, so 245mm = 24.5cm foot length. On standard women's charts that maps to:\n\n- **EU:** 38.5 (some brands label it 38 or 39)\n- US Women's: ~7.5\n- UK Women's: ~5.5\n\nSizing varies a bit by brand, so if you're between 38 and 39, going up to **39** is the safer bet for comfort.","diff":""},{"id":30,"prompt_id":8,"model_id":"gpt-5-5","level":"xhigh","output_text":"A Korean shoe size **245 mm** is usually about a **EU women’s 38.5 to 39**.\n\nMost size charts round it to **EU 39**, but if the brand offers half sizes, try **EU 38.5** first.","diff":""},{"id":31,"prompt_id":8,"model_id":"opus-4-8","level":"high","output_text":"**245mm (Korean) ≈ EU 38.5–39** (women's)\n\nKorean sizes are measured directly in millimeters of foot length (Mondopoint), so 245mm = a 24.5cm foot.\n\nQuick reference for that length:\n- **EU (women's): 38.5–39**\n- US (women's): ~7.5–8\n- UK (women's): ~5.5–6\n\nIf you're between sizes or the shoe runs narrow, going with **EU 39** is the safer choice.","diff":""},{"id":32,"prompt_id":8,"model_id":"gpt-5-5","level":"medium","output_text":"A **245 mm Korean shoe size** is usually about a **EU women’s 38**.\n\nIt can vary slightly by brand, so the practical range is **EU 38 to 38.5**.","diff":""},{"id":33,"prompt_id":9,"model_id":"opus-4-8","level":"max","output_text":"Now the explanation.\n\n## The one fact that makes it click\n\n**Generating a token from an LLM is memory-bound, not compute-bound.**\n\nTo produce a *single* token, the GPU streams the model's *entire* weights (tens of GBs) from memory through its compute units. That memory transfer is the expensive part. The actual arithmetic is cheap, and the compute units mostly sit idle waiting on memory.\n\nThe key consequence: running the model on **1 token vs. 8 tokens in a single forward pass takes almost the same wall-clock time** — you load the weights once either way. Compute scales with token count, but compute was never your bottleneck.\n\nSo normal generation is wasteful: one weight-load → one token. You pay full price for the weight-load and get only one token out.\n\n## The idea\n\nGuess several tokens cheaply, then verify them all in one forward pass of the big model:\n\n1. A small, fast **draft model** proposes the next k tokens (say k=4). It's ~10–20x cheaper to run, so this is nearly free.\n2. Run the **big model once** over `prompt + all 4 draft tokens`. A transformer forward pass naturally produces the model's predicted distribution at *every* position simultaneously — so this single pass tells you what the big model itself would have said after the prompt, after draft-token-1, after draft-token-2, and so on.\n3. **Verify** left-to-right: accept each draft token where the big model agrees. At the first disagreement, discard that token and everything after it, and substitute the big model's own choice there.\n\nThis is exactly **speculative / optimistic execution** from CPUs — a branch predictor running ahead on a guess, or optimistic locking. You do work ahead on a guess; if it holds you bank it, if not you throw it away. You never get a wrong result — you just sometimes waste cheap speculative work.\n\n## The payoff per big-model pass\n\n- **Worst case** (all 4 rejected): you still keep 1 token — the big model's own choice at the first position. Identical to no speculation, never worse.\n- **Best case** (all 4 accepted): you get 5 tokens (the 4 + a bonus from the final position) for the price of one weight-load.\n\nYou've turned \"1 weight-load → 1 token\" into \"1 weight-load → 1-to-5 tokens\" — and the weight-load was the whole cost.\n\n## Why it's free (lossless)\n\nThe elegant part: it's **not an approximation**. The accept/reject step uses a rejection-sampling rule based on the big model's actual probabilities, and it's provably equivalent to sampling from the big model directly. The output has the *same probability distribution* as if you'd never used a draft model. You're not trading quality for speed — only spending otherwise-idle compute on guesses, and discarding the bad ones.\n\n## The catch — when it helps\n\nSpeedup is governed by the **acceptance rate**: how often the draft agrees with the big model. Predictable tokens (common words, boilerplate, code syntax) get accepted a lot; surprising tokens don't. Typical real-world speedups are ~2–3x. It works because (a) the draft is good enough on the easy stuff, and (b) verification rides on spare compute you weren't using. If the draft is too slow or too inaccurate, the bookkeeping isn't worth it.\n\n---\n\nOne footnote for when you go deeper: the \"draft\" doesn't have to be a separate small model — variants get the guesses from n-gram lookups or by having the big model predict several tokens at once (Medusa, EAGLE). Same verify-and-accept mechanism underneath.\n\nWant me to walk through a concrete token-by-token verification example, or show roughly where this sits in a real serving stack (vLLM/TensorRT-LLM)?","diff":""},{"id":34,"prompt_id":9,"model_id":"gpt-5-5","level":"xhigh","output_text":"Speculative decoding is a way to make LLM text generation faster without changing the main model’s output quality.\n\nThe simple idea:\n\n1. Use a small, fast model to guess the next few tokens.\n2. Ask the large, slow model to check those guesses in one batch.\n3. Keep the guessed tokens the large model agrees with.\n4. If the large model disagrees, fall back to the large model’s token and continue.\n\nWhy this helps: normally, an LLM generates one token at a time:\n\n```text\nbig model -> token 1\nbig model -> token 2\nbig model -> token 3\n...\n```\n\nEach step requires a separate expensive forward pass.\n\nWith speculative decoding:\n\n```text\nsmall model guesses: token 1, token 2, token 3, token 4\nbig model checks all 4 at once\naccept maybe 3 of them\n```\n\nSo the big model does fewer sequential calls.\n\nA software analogy: it is like branch prediction or optimistic execution. A cheap component predicts what will happen, and the expensive component validates it. If the prediction was right, you saved time. If it was wrong, you recover safely.\n\nImportant points:\n\n- The small model is called the **draft model**.\n- The large model is called the **target model**.\n- Speedup depends on how often the draft model guesses tokens the large model would plausibly generate.\n- If implemented correctly, speculative decoding can preserve the same output distribution as sampling directly from the large model.\n- It works best when the draft model is much faster but still reasonably aligned with the large model.\n\nIn short: speculative decoding lets a cheap model “draft ahead” while the expensive model verifies chunks at a time, reducing latency during generation.","diff":""},{"id":35,"prompt_id":9,"model_id":"opus-4-8","level":"high","output_text":"## The core problem\n\nWhen an LLM generates text, it produces **one token at a time**. To generate token #5, it needs tokens #1-4 as input. So generation is inherently sequential — you can't compute token #5 and #6 in parallel because #6 depends on #5.\n\nHere's the painful part: each token requires a full forward pass through the model (billions of parameters). And that forward pass is **memory-bound, not compute-bound** — the GPU spends most of its time loading the model weights from memory, not actually doing math. So whether you push 1 token or 10 tokens through the model in a single pass, the cost is *almost the same*, because the bottleneck is loading weights, not the arithmetic.\n\nThat's the key insight that makes speculative decoding work.\n\n## The trick\n\nThink of it like **branch prediction** in a CPU, or an optimistic-concurrency / speculative-execution pattern you'd see in systems code:\n\n1. Use a small, **fast \"draft\" model** to cheaply guess the next several tokens (say 5 of them). The small model is dumber but ~10x faster.\n2. Feed all 5 guessed tokens into the **big \"target\" model** in a *single* forward pass. Remember: one pass with 5 tokens costs roughly the same as one pass with 1 token.\n3. The big model checks each guess in parallel. It accepts the guesses that match what it *would have* produced and rejects at the first mismatch.\n\nSo in one expensive forward pass, you might confirm 1, 3, or all 5 tokens — instead of always just 1.\n\n## The guarantee\n\nThis is the elegant part: the output is **mathematically identical** to what the big model would have produced on its own. The verification step uses a sampling scheme that corrects for any bias from the draft model. The draft model only affects *speed*, never *quality*. If the draft guesses well, you go fast; if it guesses badly, you fall back to roughly normal speed (you wasted some cheap draft compute, but the big model's output is unchanged).\n\n## Mental model\n\n```\nNaive:        [big model] → tok → [big model] → tok → [big model] → tok   (3 expensive passes)\n\nSpeculative:  [small model guesses: A B C D E]  (cheap)\n              [big model verifies all 5 at once] → accepts A B C, rejects D  (1 expensive pass → 3 tokens)\n```\n\nNet effect: 2-3x faster generation, same output. The speedup depends entirely on how often the cheap draft model agrees with the expensive one — easy/predictable text gets accepted in long runs; hard text falls back to near-baseline speed.\n\nA few related terms you'll bump into: the draft model can also be the *same* model with extra prediction heads (Medusa), or even the model predicting against itself with earlier layers (self-speculative). The principle is identical — cheap proposal, one-pass verification.\n\nWant me to go deeper on the verification/sampling math, or on how draft models are chosen in practice?","diff":""},{"id":36,"prompt_id":9,"model_id":"gpt-5-5","level":"medium","output_text":"Speculative decoding is an optimization for generating text faster from large language models.\n\nThe basic idea: use a small, fast model to guess several next tokens, then ask the large, accurate model to verify those guesses in one batch.\n\nInstead of this:\n\n```text\nlarge model -> token 1\nlarge model -> token 2\nlarge model -> token 3\nlarge model -> token 4\n```\n\nYou do this:\n\n```text\nsmall model guesses: token 1, token 2, token 3, token 4\nlarge model checks all 4 at once\naccept the guesses that match what the large model would have allowed\n```\n\nIf the small model guesses well, the large model effectively produces multiple tokens per expensive forward pass. If the small model guesses badly, the system falls back to the large model’s result, so output quality stays the same.\n\nA software analogy: imagine a junior engineer drafts the next few lines of code, and a senior engineer reviews them quickly. If the draft is right, you move faster. If it is wrong, the senior engineer corrects it. The senior engineer is still the authority, so correctness is preserved.\n\nWhy it helps:\n\n- Large models are expensive to run one token at a time.\n- Verifying several proposed tokens can be cheaper than generating each one separately.\n- The small model is fast enough that its guessing overhead is worth it.\n\nA simplified flow:\n\n1. The main model has generated some text so far.\n2. A smaller draft model predicts the next `k` tokens.\n3. The large model evaluates those tokens in parallel.\n4. Tokens that agree with the large model are accepted.\n5. At the first rejected token, the large model supplies the correct next token.\n6. Repeat.\n\nExample:\n\n```text\nPrompt: \"The capital of France is\"\n\nsmall model guesses:\n\" Paris, which is\"\n\nlarge model checks:\n\" Paris\"      accepted\n\",\"           accepted\n\" which\"      maybe rejected\n\nFinal so far:\n\"The capital of France is Paris,\"\n```\n\nThe important point: speculative decoding is not “letting a worse model write the answer.” It is letting a cheaper model propose tokens, while the expensive model remains in control.\n\nThe tradeoff is that it works best when the draft model often predicts what the large model would likely say. If the guesses are poor, you do not get much speedup, and you may even add overhead.","diff":""},{"id":37,"prompt_id":10,"model_id":"opus-4-8","level":"max","output_text":"Cook to temperature, not time — that's the one rule that matters for steak. A timer can't account for thickness, starting temp, or your oven's quirks, but a meat thermometer is foolproof.\n\nAfter dry brining (which you can sear straight from — no need to rinse, just pat dry), the cleanest oven method is a **reverse sear**:\n\n1. **Oven at 250°F (120°C).** Steak on a rack over a sheet pan.\n2. **Bake until ~10–15°F below your target**, then finish with a hard sear:\n   - Rare: pull at ~110°F → final 120–125°F\n   - Medium-rare: pull at ~120°F → final 130–135°F\n   - Medium: pull at ~130°F → final 140–145°F\n3. **Sear** in a ripping-hot pan (or grill) ~45–60 sec per side for the crust.\n\nBallpark timing just so you know when to start checking — for a 1.5″ steak, ~25–35 min in the oven; for 2″, ~40–50 min. Start probing early; carryover heat keeps climbing after you pull it, so rest it 5–10 min before slicing.\n\nIf you'd rather sear-then-bake instead, sear first in a hot oven-safe pan, then finish in a 400°F oven just a few minutes to your pull temp.\n\n(Bit outside my usual lane — I'm set up here for coding tasks — but happy to help. Want doneness targets for a specific thickness or cut?)","diff":""},{"id":38,"prompt_id":10,"model_id":"gpt-5-5","level":"xhigh","output_text":"Dry brining doesn’t change the bake time much. Bake by **internal temperature**, not the clock.\n\nFor best results, after dry brining:\n\n1. Pat the steak dry. Don’t rinse it.\n2. Bake at **250°F** for a reverse sear.\n3. Pull it about **5°F below your target**, then sear hard in a hot pan for 45-60 seconds per side.\n\nApproximate bake times at **250°F**:\n\n| Thickness | Medium-rare target | Bake time |\n|---|---:|---:|\n| 1 inch | 130-135°F | 20-25 min |\n| 1.5 inch | 130-135°F | 25-40 min |\n| 2 inch | 130-135°F | 40-55 min |\n\nUSDA’s safe minimum for beef steaks is **145°F with a 3-minute rest**: [USDA FSIS temperature chart](https://www.fsis.usda.gov/food-safety/safe-food-handling-and-preparation/food-safety-basics/safe-temperature-chart). Many people cook intact steaks lower for medium-rare, but a thermometer is the only reliable way to hit your preferred doneness.","diff":""},{"id":39,"prompt_id":10,"model_id":"opus-4-8","level":"high","output_text":"For a steak, \"baking\" usually comes after a sear (reverse sear is the exception). A few quick guidelines:\n\n**Reverse sear (oven first, then sear):**\n- Oven at 225–275°F (107–135°C)\n- Bake until internal temp is ~10–15°F below your target, then sear hot\n- Roughly 20–40 min depending on thickness; pull at **115°F** for rare, **120–125°F** for medium-rare, **130°F** for medium\n- Use a thermometer, not a clock — thickness matters far more than time\n\n**Sear first, then finish in oven** (thick cuts):\n- Oven at 400°F (205°C), 5–10 min after searing, again pulling ~5°F below target\n\nDry brining (salting uncovered in the fridge for 1–24h) doesn't change cook time — it just improves seasoning and browning. Pat the surface dry before cooking.\n\nAlways **rest 5–10 minutes** after; temp rises ~5°F (carryover). Target pull temps for medium-rare: **130–135°F** final.\n\nWhat's the thickness of your steak and your doneness target? I can give a tighter time estimate.","diff":""},{"id":40,"prompt_id":10,"model_id":"gpt-5-5","level":"medium","output_text":"After dry brining, **don’t bake by time alone**. Bake until the steak reaches your target internal temperature, because thickness matters.\n\nFor a common **1 to 1.5 inch steak**:\n\n- **Oven at 250°F:** about **20-35 minutes**\n- Pull at:\n  - **115-120°F** for rare\n  - **125-130°F** for medium-rare\n  - **135-140°F** for medium\n\nThen sear it hard in a hot pan or grill for **1-2 minutes per side**. Rest **5-10 minutes**.\n\nIf you’re baking at **400°F**, it may only take **6-12 minutes**, but it’s easier to overshoot. A thermometer is the right tool here.","diff":""}]}</script>
+    <script>
+      (function () {
+        var DATA = JSON.parse(document.getElementById("bench-data").textContent);
+        var LS = "vibebench:votes:" + (DATA.benchId || "default");
+        var view = document.getElementById("view");
+        var tab = "evaluate";
+        var promptOpen = false;
+        var cur = null; // current pair
+        var cardView = "text"; // text | diff
+
+        document.getElementById("sub").textContent =
+          DATA.prompts.length + " prompts · your votes are saved only in this browser";
+
+        function esc(s) {
+          return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+        function md(s) {
+          if (!s || !s.trim()) return '<div class="muted">No output.</div>';
+          try { return '<div class="md">' + window.marked.parse(s) + "</div>"; }
+          catch (e) { return '<div class="md"><pre>' + esc(s) + "</pre></div>"; }
+        }
+        function renderDiff(d) {
+          if (!d || !d.trim()) return '<div class="muted">No file changes.</div>';
+          var out = d.split("\n").map(function (l) {
+            var c = "";
+            if (l.indexOf("@@") === 0) c = "hunk";
+            else if (l[0] === "+" && l.indexOf("+++") !== 0) c = "add";
+            else if (l[0] === "-" && l.indexOf("---") !== 0) c = "del";
+            else if (l.indexOf("diff ") === 0 || l.indexOf("index ") === 0 || l.indexOf("+++") === 0 || l.indexOf("---") === 0) c = "meta";
+            return '<span class="dl ' + c + '">' + esc(l || " ") + "</span>";
+          }).join("");
+          return '<div class="diff">' + out + "</div>";
+        }
+        function hasText(r) { return !!(r && r.output_text && r.output_text.trim()); }
+        function hasDiff(r) { return !!(r && r.diff && r.diff.trim()); }
+
+        // ---- votes (localStorage) ----
+        function loadVotes() { try { return JSON.parse(localStorage.getItem(LS) || "[]"); } catch (e) { return []; } }
+        function saveVotes(v) { localStorage.setItem(LS, JSON.stringify(v)); }
+        function pairKey(a, b) { return a < b ? a + ":" + b : b + ":" + a; }
+
+        // ---- pairing ----
+        function runsForPrompt(pid) {
+          return DATA.runs.filter(function (r) { return r.prompt_id === pid && hasText(r) || (r.prompt_id === pid && hasDiff(r)); });
+        }
+        function nextPair() {
+          var judged = {};
+          loadVotes().forEach(function (v) { judged[pairKey(v.runA, v.runB)] = 1; });
+          var cands = [];
+          DATA.prompts.forEach(function (p) {
+            var rs = runsForPrompt(p.id);
+            for (var i = 0; i < rs.length; i++)
+              for (var j = i + 1; j < rs.length; j++) {
+                var a = rs[i], b = rs[j];
+                if (a.model_id === b.model_id && a.level === b.level) continue;
+                if (judged[pairKey(a.id, b.id)]) continue;
+                cands.push({ p: p, a: a, b: b });
+              }
+          });
+          if (!cands.length) return null;
+          var c = cands[Math.floor(Math.random() * cands.length)];
+          var flip = Math.random() < 0.5;
+          return { prompt: c.p, left: flip ? c.a : c.b, right: flip ? c.b : c.a, remaining: cands.length };
+        }
+        function vote(winner) {
+          if (!cur) return;
+          var v = loadVotes();
+          v.push({ promptId: cur.prompt.id, runA: cur.left.id, runB: cur.right.id, winner: winner });
+          saveVotes(v);
+          promptOpen = false;
+          cur = nextPair();
+          renderEvaluate();
+        }
+
+        // ---- elo ----
+        function modelOf(id) { for (var i = 0; i < DATA.models.length; i++) if (DATA.models[i].id === id) return DATA.models[i]; return null; }
+        function keyOfRun(id) { for (var i = 0; i < DATA.runs.length; i++) if (DATA.runs[i].id === id) return DATA.runs[i].model_id + ":" + DATA.runs[i].level; return null; }
+        function computeRatings() {
+          var R = {};
+          function get(k) { if (!R[k]) R[k] = { key: k, rating: 1000, games: 0, wins: 0, losses: 0, ties: 0 }; return R[k]; }
+          loadVotes().forEach(function (v) {
+            if (v.winner === "skip") return;
+            var ka = keyOfRun(v.runA), kb = keyOfRun(v.runB);
+            if (!ka || !kb || ka === kb) return;
+            var ra = get(ka), rb = get(kb);
+            var ea = 1 / (1 + Math.pow(10, (rb.rating - ra.rating) / 400));
+            var eb = 1 / (1 + Math.pow(10, (ra.rating - rb.rating) / 400));
+            var sa;
+            if (v.winner === "tie") { sa = 0.5; ra.ties++; rb.ties++; }
+            else if (v.winner === v.runA) { sa = 1; ra.wins++; rb.losses++; }
+            else { sa = 0; ra.losses++; rb.wins++; }
+            ra.rating += 32 * (sa - ea); rb.rating += 32 * (1 - sa - eb); ra.games++; rb.games++;
+          });
+          return Object.keys(R).map(function (k) { return R[k]; }).sort(function (a, b) { return b.rating - a.rating; });
+        }
+
+        // ---- render: evaluate ----
+        function renderEvaluate() {
+          if (!cur) cur = nextPair();
+          if (!cur) {
+            var judged = loadVotes().filter(function (v) { return v.winner !== "skip"; }).length;
+            view.innerHTML =
+              '<div class="center"><div class="big">🎉</div><h2>All caught up</h2>' +
+              '<p class="muted">You judged ' + judged + ' pair' + (judged === 1 ? "" : "s") + '. ' +
+              'Check the leaderboard to see how you ranked them.</p>' +
+              '<button class="btn btn-primary" id="goLb" style="margin-top:14px">See leaderboard →</button></div>';
+            document.getElementById("goLb").onclick = function () { switchTab("leaderboard"); };
+            return;
+          }
+          var p = cur.prompt;
+          var bothDiff = hasDiff(cur.left) || hasDiff(cur.right);
+          var longPrompt = (p.body || "").length > 140;
+          function cardHtml(side, label) {
+            var showDiff = cardView === "diff" && hasDiff(side);
+            var body = showDiff ? renderDiff(side.diff) : hasText(side) ? md(side.output_text) : hasDiff(side) ? renderDiff(side.diff) : '<div class="muted">No output.</div>';
+            var stat = "";
+            if (hasDiff(side)) {
+              var add = 0, del = 0; side.diff.split("\n").forEach(function (l) { if (l[0] === "+" && l.indexOf("+++") !== 0) add++; else if (l[0] === "-" && l.indexOf("---") !== 0) del++; });
+              stat = '<span style="font-size:11px;font-family:monospace"><span style="color:#6ee7b7">+' + add + '</span> <span style="color:#fca5a5">-' + del + "</span></span>";
+            }
+            return '<div class="col card"><div class="colhead"><span class="lab">' + label + "</span>" + stat + '</div><div class="out">' + body + "</div></div>";
+          }
+          var viewToggle = bothDiff
+            ? '<div class="viewtoggle"><button id="vt-text" class="' + (cardView === "text" ? "on" : "") + '">Answer</button>' +
+              '<button id="vt-diff" class="' + (cardView === "diff" ? "on" : "") + '">Diff</button></div>'
+            : "";
+          view.innerHTML =
+            '<div class="evalhead"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">' +
+            '<div style="min-width:0"><div class="kicker">Which is better? · ' + cur.remaining + " pairs left</div>" +
+            '<div class="ptitle">' + esc(p.title) + "</div>" +
+            '<div class="pbody ' + (promptOpen ? "open" : "clamp") + '" id="pbody">' + esc(p.body) + "</div>" +
+            (longPrompt ? '<button class="morebtn" id="moreBtn">' + (promptOpen ? "Show less ▲" : "Show full prompt ▼") + "</button>" : "") +
+            (p.repo_path ? '<div style="font-size:11px;color:rgba(255,255,255,0.3);font-family:monospace;margin-top:4px">📁 ' + esc(p.repo_path) + "</div>" : "") +
+            "</div>" + viewToggle + "</div>" +
+            '<div class="cards">' + cardHtml(cur.left, "A") + cardHtml(cur.right, "B") + "</div>" +
+            '<div class="actions">' +
+            '<button class="btn btn-primary" id="pa">← Pick A</button>' +
+            '<button class="btn btn-ghost" id="pt">Tie (T)</button>' +
+            '<button class="btn btn-ghost" id="ps">Skip (S)</button>' +
+            '<button class="btn btn-primary" id="pb">Pick B →</button>' +
+            "</div>" +
+            '<div class="hint">← / → pick · T tie · S skip' + (bothDiff ? " · D answer/diff" : "") + " · model identities hidden until the leaderboard</div></div>";
+          document.getElementById("pa").onclick = function () { vote(cur.left.id); };
+          document.getElementById("pb").onclick = function () { vote(cur.right.id); };
+          document.getElementById("pt").onclick = function () { vote("tie"); };
+          document.getElementById("ps").onclick = function () { vote("skip"); };
+          var mb = document.getElementById("moreBtn");
+          if (mb) mb.onclick = function () { promptOpen = !promptOpen; renderEvaluate(); };
+          var vtt = document.getElementById("vt-text"), vtd = document.getElementById("vt-diff");
+          if (vtt) vtt.onclick = function () { cardView = "text"; renderEvaluate(); };
+          if (vtd) vtd.onclick = function () { cardView = "diff"; renderEvaluate(); };
+        }
+
+        // ---- render: leaderboard ----
+        function renderLeaderboard() {
+          var ratings = computeRatings();
+          var battles = loadVotes().filter(function (v) { return v.winner !== "skip"; }).length;
+          if (!ratings.length) {
+            view.innerHTML = '<div class="center"><h2>No votes yet</h2><p class="muted">Head to ' +
+              '<a href="#" id="goEv">Evaluate</a> and judge a few pairs — your ranking builds here.</p></div>';
+            document.getElementById("goEv").onclick = function (e) { e.preventDefault(); switchTab("evaluate"); };
+            return;
+          }
+          var max = Math.max.apply(null, [1200].concat(ratings.map(function (r) { return r.rating; })));
+          var min = Math.min.apply(null, [900].concat(ratings.map(function (r) { return r.rating; })));
+          var rows = ratings.map(function (r, i) {
+            var parts = r.key.split(":"); var modelId = parts[0], level = parts[1];
+            var m = modelOf(modelId); var label = m ? m.label : modelId; var accent = m ? m.accent : "slate";
+            var pct = Math.max(4, ((r.rating - min) / (max - min || 1)) * 100);
+            var wr = r.games ? Math.round((r.wins / r.games) * 100) : 0;
+            return '<div class="row card" style="margin-bottom:8px">' +
+              '<div class="rank">' + (i + 1) + "</div>" +
+              '<div class="who"><div class="m accent-' + accent + '">' + esc(label) + '</div><div class="lv">' + esc(level) + "</div></div>" +
+              '<div style="flex:1"><div class="bar"><div class="bg-' + accent + '" style="width:' + pct + '%"></div></div>' +
+              '<div class="wl">' + r.wins + "W · " + r.losses + "L · " + r.ties + "T · " + wr + '% win rate</div></div>' +
+              '<div class="elo"><div class="n">' + Math.round(r.rating) + '</div><div class="u">elo</div></div></div>';
+          }).join("");
+          view.innerHTML =
+            '<div class="evalhead" style="display:flex;justify-content:space-between;align-items:flex-end"><div>' +
+            "<h2 style=\"margin:0\">Leaderboard</h2><div class=\"sub\">Your blind ranking — " + battles + " judged battle" + (battles === 1 ? "" : "s") + ".</div></div>" +
+            '<button class="btn btn-ghost" id="resetBtn" style="padding:7px 14px;font-size:13px">Reset my votes</button></div>' +
+            '<div style="margin-top:14px">' + rows + "</div>";
+          document.getElementById("resetBtn").onclick = function () {
+            if (confirm("Clear all your votes in this browser?")) { localStorage.removeItem(LS); cur = null; renderLeaderboard(); }
+          };
+        }
+
+        function render() { tab === "evaluate" ? renderEvaluate() : renderLeaderboard(); }
+        function switchTab(t) {
+          tab = t;
+          document.getElementById("tab-evaluate").className = "tab" + (t === "evaluate" ? " active" : "");
+          document.getElementById("tab-leaderboard").className = "tab" + (t === "leaderboard" ? " active" : "");
+          render();
+        }
+        document.getElementById("tab-evaluate").onclick = function () { switchTab("evaluate"); };
+        document.getElementById("tab-leaderboard").onclick = function () { switchTab("leaderboard"); };
+        document.addEventListener("keydown", function (e) {
+          if (tab !== "evaluate" || !cur) return;
+          var k = e.key.toLowerCase();
+          if (e.key === "ArrowLeft") vote(cur.left.id);
+          else if (e.key === "ArrowRight") vote(cur.right.id);
+          else if (k === "t") vote("tie");
+          else if (k === "s") vote("skip");
+          else if (k === "d") { cardView = cardView === "text" ? "diff" : "text"; renderEvaluate(); }
+        });
+
+        render();
+      })();
+    </script>
+  </body>
+</html>
