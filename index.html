@@ -154,8 +154,35 @@
           return DATA.runs.filter(function (r) { return r.prompt_id === pid && hasText(r) || (r.prompt_id === pid && hasDiff(r)); });
         }
         function nextPair() {
-          var judged = {};
-          loadVotes().forEach(function (v) { judged[pairKey(v.runA, v.runB)] = 1; });
+          var votes = loadVotes();
+          var seen = {};
+          votes.forEach(function (v) { seen[pairKey(v.runA, v.runB)] = 1; });
+
+          // Directed preference graph (winner -> loser; tie links both ways), so
+          // we can skip pairs whose ordering is already implied by transitivity:
+          // A>B and B>C means we never ask A vs C. (A>B and A>C does NOT imply
+          // anything about B vs C, so only a real chain prunes.)
+          var adj = {};
+          function link(f, t) { (adj[f] || (adj[f] = [])).push(t); }
+          votes.forEach(function (v) {
+            if (v.winner === "skip") return;
+            if (v.winner === "tie") { link(v.runA, v.runB); link(v.runB, v.runA); }
+            else link(v.winner, v.winner === v.runA ? v.runB : v.runA);
+          });
+          var reachCache = {};
+          function reachable(from) {
+            if (reachCache[from]) return reachCache[from];
+            var known = {}, stack = (adj[from] || []).slice();
+            while (stack.length) {
+              var n = stack.pop();
+              if (known[n]) continue;
+              known[n] = 1;
+              (adj[n] || []).forEach(function (m) { if (!known[m]) stack.push(m); });
+            }
+            return (reachCache[from] = known);
+          }
+          function ordered(a, b) { return !!reachable(a)[b] || !!reachable(b)[a]; }
+
           var cands = [];
           DATA.prompts.forEach(function (p) {
             var rs = runsForPrompt(p.id);
@@ -163,7 +190,8 @@
               for (var j = i + 1; j < rs.length; j++) {
                 var a = rs[i], b = rs[j];
                 if (a.model_id === b.model_id && a.level === b.level) continue;
-                if (judged[pairKey(a.id, b.id)]) continue;
+                if (seen[pairKey(a.id, b.id)]) continue;
+                if (ordered(a.id, b.id)) continue;
                 cands.push({ p: p, a: a, b: b });
               }
           });
